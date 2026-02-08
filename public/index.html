@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cantonese Learning App</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🇭🇰 Cantonese Conversation Practice</h1>
+            <p>Speak in Cantonese and get AI responses with pronunciation guidance</p>
+        </header>
+
+        <main>
+            <!-- Recording Section -->
+            <div class="recording-section">
+                <button id="recordBtn" class="btn btn-primary">
+                    <span id="recordIcon">🎤</span>
+                    <span id="recordText">Start Recording</span>
+                </button>
+                <p id="recordingStatus" class="status"></p>
+            </div>
+
+            <!-- Transcription Display -->
+            <div class="transcription-section">
+                <h2>Your Speech</h2>
+                <div id="userTranscription" class="transcription-box">
+                    <p class="placeholder">Your transcription will appear here...</p>
+                </div>
+            </div>
+
+            <!-- AI Response Section -->
+            <div class="response-section">
+                <h2>AI Response</h2>
+                <div id="aiResponse" class="transcription-box">
+                    <p class="placeholder">AI response will appear here...</p>
+                </div>
+                <audio id="audioPlayer" controls style="width: 100%; margin-top: 10px; display: none;"></audio>
+            </div>
+
+            <!-- Conversation History -->
+            <div class="history-section">
+                <h2>Conversation History</h2>
+                <div id="conversationHistory" class="history-box">
+                    <p class="placeholder">Your conversation will be logged here...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

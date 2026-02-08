@@ -1,0 +1,221 @@
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+
+// DOM elements
+const recordBtn = document.getElementById('recordBtn');
+const recordIcon = document.getElementById('recordIcon');
+const recordText = document.getElementById('recordText');
+const recordingStatus = document.getElementById('recordingStatus');
+const userTranscription = document.getElementById('userTranscription');
+const aiResponse = document.getElementById('aiResponse');
+const audioPlayer = document.getElementById('audioPlayer');
+const conversationHistory = document.getElementById('conversationHistory');
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    checkMicrophonePermission();
+});
+
+// Check microphone permission
+async function checkMicrophonePermission() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        recordBtn.disabled = false;
+    } catch (error) {
+        console.error('Microphone permission denied:', error);
+        recordingStatus.textContent = 'Microphone access denied. Please enable it.';
+        recordBtn.disabled = true;
+    }
+}
+
+// Record button click handler
+recordBtn.addEventListener('click', async () => {
+    if (!isRecording) {
+        startRecording();
+    } else {
+        stopRecording();
+    }
+});
+
+// Start recording
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            await transcribeAudio(audioBlob);
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+
+        // Update UI
+        recordBtn.classList.add('recording');
+        recordIcon.textContent = '⏹️';
+        recordText.textContent = 'Stop Recording';
+        recordingStatus.textContent = 'Recording... Speak now!';
+        
+    } catch (error) {
+        console.error('Error starting recording:', error);
+        recordingStatus.textContent = 'Error starting recording.';
+    }
+}
+
+// Stop recording
+function stopRecording() {
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+        isRecording = false;
+
+        // Update UI
+        recordBtn.classList.remove('recording');
+        recordIcon.textContent = '🎤';
+        recordText.textContent = 'Start Recording';
+        recordingStatus.textContent = 'Processing...';
+    }
+}
+
+// Transcribe audio
+async function transcribeAudio(audioBlob) {
+    try {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error('Transcription failed');
+        }
+
+        const data = await response.json();
+        displayUserTranscription(data);
+        
+        // Add to conversation history
+        addToHistory('user', data.text, data.jyutping);
+
+        // Generate AI response
+        await generateAIResponse(data.text);
+
+    } catch (error) {
+        console.error('Transcription error:', error);
+        recordingStatus.textContent = 'Error: ' + error.message;
+        userTranscription.innerHTML = '<p class="error">Transcription failed. Please try again.</p>';
+    }
+}
+
+// Display user transcription
+function displayUserTranscription(data) {
+    userTranscription.innerHTML = `
+        <div class="transcription-content">
+            <p class="chinese">${data.text}</p>
+            <p class="jyutping">${data.jyutping || 'Jyutping unavailable'}</p>
+            ${data.english ? `<p class="english">${data.english}</p>` : ''}
+        </div>
+    `;
+    recordingStatus.textContent = 'Transcription complete!';
+}
+
+// Generate AI response
+async function generateAIResponse(userText) {
+    try {
+        recordingStatus.textContent = 'Generating AI response...';
+        
+        // TODO: Add actual conversation logic with LLM
+        // For now, just echo a simple response
+        const responseText = '你好！你今日點呀？';
+        
+        const response = await fetch('/api/synthesize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: responseText })
+        });
+
+        if (!response.ok) {
+            throw new Error('Speech synthesis failed');
+        }
+
+        const data = await response.json();
+        displayAIResponse(data);
+        playAudio(data.audio);
+        
+        // Add to conversation history
+        addToHistory('ai', data.text, data.jyutping);
+
+        recordingStatus.textContent = 'Ready to record again!';
+
+    } catch (error) {
+        console.error('AI response error:', error);
+        recordingStatus.textContent = 'Error generating response.';
+        aiResponse.innerHTML = '<p class="error">Failed to generate response.</p>';
+    }
+}
+
+// Display AI response
+function displayAIResponse(data) {
+    aiResponse.innerHTML = `
+        <div class="transcription-content">
+            <p class="chinese">${data.text}</p>
+            <p class="jyutping">${data.jyutping || 'Jyutping unavailable'}</p>
+        </div>
+    `;
+}
+
+// Play audio
+function playAudio(base64Audio) {
+    const audioBlob = base64ToBlob(base64Audio, 'audio/mp3');
+    const audioUrl = URL.createObjectURL(audioBlob);
+    audioPlayer.src = audioUrl;
+    audioPlayer.style.display = 'block';
+    audioPlayer.play();
+}
+
+// Convert base64 to blob
+function base64ToBlob(base64, mimeType) {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+}
+
+// Add to conversation history
+function addToHistory(speaker, text, jyutping) {
+    const historyItem = document.createElement('div');
+    historyItem.className = `history-item ${speaker}`;
+    
+    const timestamp = new Date().toLocaleTimeString();
+    const speakerLabel = speaker === 'user' ? 'You' : 'AI';
+    
+    historyItem.innerHTML = `
+        <div class="history-header">
+            <span class="speaker">${speakerLabel}</span>
+            <span class="timestamp">${timestamp}</span>
+        </div>
+        <p class="chinese">${text}</p>
+        <p class="jyutping">${jyutping || ''}</p>
+    `;
+    
+    // Remove placeholder if it exists
+    const placeholder = conversationHistory.querySelector('.placeholder');
+    if (placeholder) {
+        placeholder.remove();
+    }
+    
+    conversationHistory.appendChild(historyItem);
+    conversationHistory.scrollTop = conversationHistory.scrollHeight;
+}
