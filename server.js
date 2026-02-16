@@ -98,7 +98,7 @@ app.post('/api/synthesize', async (req, res) => {
       api_key: CANTONESE_AI_API_KEY,
       text: aiText,
       language: 'cantonese',
-      voice_id: 'eb545e15-28ec-42ba-badf-e13eec7ed4c8', // Echo (emotional)
+      voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
       output_extension: 'mp3',
       frame_rate: '24000',
       speed: 1.0,
