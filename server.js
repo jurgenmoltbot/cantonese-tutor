@@ -104,6 +104,9 @@ app.post('/api/synthesize', async (req, res) => {
       speed: 1.0,
       should_enhance: true
     }, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
       responseType: 'arraybuffer'
     });
 
@@ -117,10 +120,16 @@ app.post('/api/synthesize', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Synthesis error:', error.response?.data || error.message);
+    // Better error logging - decode buffer if it's HTML
+    let errorDetails = error.response?.data || error.message;
+    if (Buffer.isBuffer(errorDetails)) {
+      errorDetails = errorDetails.toString('utf8').substring(0, 500);
+    }
+    console.error('Synthesis error:', errorDetails);
+    console.error('Status:', error.response?.status);
     res.status(500).json({ 
       error: 'Speech synthesis failed',
-      details: error.response?.data || error.message 
+      details: errorDetails
     });
   }
 });
