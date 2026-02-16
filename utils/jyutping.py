@@ -11,18 +11,26 @@ try:
     def text_to_jyutping(text):
         """Convert Chinese text to Jyutping"""
         try:
-            # Parse the text and get Jyutping
+            # Use characters_to_jyutping on the whole string
+            jyutping_list = pycantonese.characters_to_jyutping(text)
+            
+            if not jyutping_list:
+                return text
+            
             result = []
-            for char in text:
-                # Get Jyutping for each character
-                jyutping_list = pycantonese.characters_to_jyutping(char)
-                if jyutping_list:
-                    # jyutping_list is a list of tuples (character, jyutping)
-                    # Extract just the jyutping part (second element)
-                    jyutping = jyutping_list[0][1] if isinstance(jyutping_list[0], tuple) else jyutping_list[0]
-                    result.append(jyutping)
+            for item in jyutping_list:
+                if isinstance(item, tuple) and len(item) >= 2:
+                    char, jyutping = item[0], item[1]
+                    # Use jyutping if available, otherwise keep the character
+                    if jyutping and jyutping.strip():
+                        result.append(jyutping)
+                    else:
+                        # Non-Chinese characters (punctuation, etc.)
+                        result.append(char)
+                elif isinstance(item, str):
+                    result.append(item)
                 else:
-                    result.append(char)  # Keep original if no Jyutping found
+                    result.append(str(item))
             
             return ' '.join(result)
         except Exception as e:
@@ -40,6 +48,6 @@ try:
 
 except ImportError:
     # Fallback if pycantonese is not installed
-    print(f"pycantonese not installed. Install with: pip3 install pycantonese", file=sys.stderr)
+    print("pycantonese not installed. Install with: pip3 install pycantonese", file=sys.stderr)
     if len(sys.argv) >= 2:
         print(sys.argv[1])  # Return original text as fallback
