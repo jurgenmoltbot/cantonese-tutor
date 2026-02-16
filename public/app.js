@@ -1,6 +1,7 @@
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
+let lastRequest = null; // Store last request for retry
 
 // DOM elements
 const recordBtn = document.getElementById('recordBtn');
@@ -167,29 +168,41 @@ document.addEventListener('click', async (e) => {
 
 // Ask AI to check if statement is correct Cantonese
 async function checkGrammar(userText) {
+    // Store for retry
+    lastRequest = { type: 'grammar', text: userText };
+    hideRetryButton();
+    
     // Add the question to history (without the check button)
     const questionText = `我想問下：「${userText}」呢句啱唔啱？`;
     addToHistory('user', questionText, '', false);
     
     recordingStatus.textContent = 'Checking your Cantonese...';
     
-    // Send to server for AI response
-    const response = await fetch('/api/check-grammar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: userText })
-    });
-    
-    if (!response.ok) {
-        throw new Error('Grammar check failed');
+    try {
+        // Send to server for AI response
+        const response = await fetch('/api/check-grammar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: userText })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Grammar check failed');
+        }
+        
+        const data = await response.json();
+        
+        // Add AI response to history
+        addToHistory('ai', data.text, data.jyutping);
+        
+        recordingStatus.textContent = 'Ready to record!';
+        lastRequest = null; // Clear on success
+        
+    } catch (error) {
+        recordingStatus.textContent = 'Error checking grammar. Click Retry to try again.';
+        showRetryButton();
+        throw error;
     }
-    
-    const data = await response.json();
-    
-    // Add AI response to history
-    addToHistory('ai', data.text, data.jyutping);
-    
-    recordingStatus.textContent = 'Ready to record!';
 }
 
 // Parse Markdown conversation format
@@ -223,6 +236,41 @@ function parseMarkdownConversation(markdown) {
     }
     
     return messages;
+}
+
+// Retry button handlers
+const retryBtn = document.getElementById('retryBtn');
+
+function showRetryButton() {
+    if (retryBtn) retryBtn.style.display = 'inline-block';
+}
+
+function hideRetryButton() {
+    if (retryBtn) retryBtn.style.display = 'none';
+}
+
+if (retryBtn) {
+    retryBtn.addEventListener('click', async () => {
+        if (!lastRequest) {
+            recordingStatus.textContent = 'Nothing to retry.';
+            hideRetryButton();
+            return;
+        }
+        
+        retryBtn.disabled = true;
+        retryBtn.textContent = '⏳ Retrying...';
+        
+        try {
+            if (lastRequest.type === 'synthesize') {
+                await generateAIResponse(lastRequest.userText);
+            } else if (lastRequest.type === 'grammar') {
+                await checkGrammar(lastRequest.text);
+            }
+        } finally {
+            retryBtn.disabled = false;
+            retryBtn.textContent = '🔁 Retry';
+        }
+    });
 }
 
 // New conversation button handler
@@ -393,8 +441,12 @@ function getScoreBadgeHtml(score) {
 
 // Generate AI response
 async function generateAIResponse(userText) {
+    // Store for retry
+    lastRequest = { type: 'synthesize', userText };
+    
     try {
         recordingStatus.textContent = 'Generating AI response...';
+        hideRetryButton();
         
         // Call backend to generate AI response and synthesize speech
         const response = await fetch('/api/synthesize', {
@@ -415,11 +467,13 @@ async function generateAIResponse(userText) {
         addToHistory('ai', data.text, data.jyutping);
 
         recordingStatus.textContent = 'Ready to record again!';
+        lastRequest = null; // Clear on success
 
     } catch (error) {
         console.error('AI response error:', error);
-        recordingStatus.textContent = 'Error generating response.';
+        recordingStatus.textContent = 'Error generating response. Click Retry to try again.';
         aiResponse.innerHTML = '<p class="error">Failed to generate response.</p>';
+        showRetryButton();
     }
 }
 
