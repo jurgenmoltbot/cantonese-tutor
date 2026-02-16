@@ -72,9 +72,14 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   }
 });
 
+// Helper to delay execution
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // Text-to-Speech endpoint
 app.post('/api/synthesize', async (req, res) => {
   try {
+    // Rate limit protection - wait 2 seconds before TTS call
+    await delay(2000);
     const { text, context = [] } = req.body;
 
     if (!text) {
