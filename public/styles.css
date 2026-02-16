@@ -344,6 +344,77 @@ audio {
     border-left: 3px solid #667eea;
 }
 
+/* Inline Score Badge */
+.transcription-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.score-badge {
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 4px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.score-badge.excellent {
+    background: #d4edda;
+    color: #155724;
+}
+
+.score-badge.good {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.score-badge.fair {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.score-badge.needs-work {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.inline-score-details {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 8px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.inline-score-details .score-label {
+    font-weight: 500;
+}
+
+.inline-score-details .transcribed-jyutping {
+    font-family: 'Courier New', monospace;
+    color: #667eea;
+    margin-left: 8px;
+}
+
+/* History score badge */
+.history-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.history-header .score-badge {
+    font-size: 0.8rem;
+    padding: 2px 8px;
+}
+
+.history-header .timestamp {
+    margin-left: auto;
+}
+
 /* Scrollbar Styling */
 .history-box::-webkit-scrollbar {
     width: 8px;

@@ -1,8 +1,6 @@
 let mediaRecorder;
 let audioChunks = [];
 let isRecording = false;
-let practiceMode = false;
-let targetText = ''; // Text to practice pronunciation against
 
 // DOM elements
 const recordBtn = document.getElementById('recordBtn');
@@ -13,8 +11,6 @@ const userTranscription = document.getElementById('userTranscription');
 const aiResponse = document.getElementById('aiResponse');
 const audioPlayer = document.getElementById('audioPlayer');
 const conversationHistory = document.getElementById('conversationHistory');
-const practiceBtn = document.getElementById('practiceBtn');
-const pronunciationScore = document.getElementById('pronunciationScore');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -43,19 +39,6 @@ recordBtn.addEventListener('click', async () => {
     }
 });
 
-// Practice button click handler
-if (practiceBtn) {
-    practiceBtn.addEventListener('click', () => {
-        if (targetText) {
-            practiceMode = true;
-            recordingStatus.textContent = `Practice mode: Say "${targetText}"`;
-            practiceBtn.classList.add('active');
-        } else {
-            recordingStatus.textContent = 'No target phrase yet. Chat first!';
-        }
-    });
-}
-
 // New conversation button handler
 const newConvoBtn = document.getElementById('newConvoBtn');
 if (newConvoBtn) {
@@ -67,10 +50,7 @@ if (newConvoBtn) {
             conversationHistory.innerHTML = '<p class="placeholder">Your conversation will be logged here...</p>';
             userTranscription.innerHTML = '<p class="placeholder">Your transcription will appear here...</p>';
             aiResponse.innerHTML = '<p class="placeholder">AI response will appear here...</p>';
-            if (pronunciationScore) pronunciationScore.style.display = 'none';
-            if (practiceBtn) practiceBtn.style.display = 'none';
             audioPlayer.style.display = 'none';
-            targetText = '';
             
             recordingStatus.textContent = 'New conversation started! Say something in Cantonese.';
         } catch (error) {
@@ -126,17 +106,10 @@ function stopRecording() {
     }
 }
 
-// Transcribe audio
+// Transcribe audio and score pronunciation
 async function transcribeAudio(audioBlob) {
     try {
-        // If in practice mode, score pronunciation instead of transcribing
-        if (practiceMode && targetText) {
-            await scorePronunciation(audioBlob, targetText);
-            practiceMode = false;
-            if (practiceBtn) practiceBtn.classList.remove('active');
-            return;
-        }
-
+        // First, transcribe to get the text
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
 
@@ -150,10 +123,16 @@ async function transcribeAudio(audioBlob) {
         }
 
         const data = await response.json();
-        displayUserTranscription(data);
+        
+        // Now score pronunciation against the transcribed text
+        recordingStatus.textContent = 'Scoring pronunciation...';
+        const scoreData = await scorePronunciationInline(audioBlob, data.text);
+        
+        // Display transcription with score
+        displayUserTranscriptionWithScore(data, scoreData);
         
         // Add to conversation history
-        addToHistory('user', data.text, data.jyutping);
+        addToHistory('user', data.text, data.jyutping, scoreData?.score);
 
         // Generate AI response
         await generateAIResponse(data.text);
@@ -165,14 +144,12 @@ async function transcribeAudio(audioBlob) {
     }
 }
 
-// Score pronunciation against target text
-async function scorePronunciation(audioBlob, target) {
+// Score pronunciation inline (returns score data, doesn't display separately)
+async function scorePronunciationInline(audioBlob, targetText) {
     try {
-        recordingStatus.textContent = 'Scoring your pronunciation...';
-        
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
-        formData.append('text', target);
+        formData.append('text', targetText);
 
         const response = await fetch('/api/score', {
             method: 'POST',
@@ -180,52 +157,19 @@ async function scorePronunciation(audioBlob, target) {
         });
 
         if (!response.ok) {
-            throw new Error('Scoring failed');
+            console.error('Scoring failed');
+            return null;
         }
 
-        const data = await response.json();
-        displayPronunciationScore(data);
+        return await response.json();
         
     } catch (error) {
         console.error('Scoring error:', error);
-        recordingStatus.textContent = 'Error scoring pronunciation.';
-        if (pronunciationScore) {
-            pronunciationScore.innerHTML = '<p class="error">Scoring failed. Please try again.</p>';
-        }
+        return null;
     }
 }
 
-// Display pronunciation score
-function displayPronunciationScore(data) {
-    const scoreClass = data.score >= 90 ? 'excellent' : data.score >= 70 ? 'good' : data.score >= 50 ? 'fair' : 'needs-work';
-    const emoji = data.score >= 90 ? '🌟' : data.score >= 70 ? '👍' : data.score >= 50 ? '💪' : '🔄';
-    
-    if (pronunciationScore) {
-        pronunciationScore.innerHTML = `
-            <div class="score-result ${scoreClass}">
-                <div class="score-number">${emoji} ${data.score}/100</div>
-                <div class="score-status">${data.passed ? '✅ Passed!' : '❌ Keep practicing!'}</div>
-                <div class="jyutping-comparison">
-                    <div class="expected">
-                        <span class="label">Expected:</span>
-                        <span class="jyutping">${data.expectedJyutping}</span>
-                    </div>
-                    <div class="transcribed">
-                        <span class="label">You said:</span>
-                        <span class="jyutping">${data.transcribedJyutping}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-        pronunciationScore.style.display = 'block';
-    }
-    
-    recordingStatus.textContent = data.passed 
-        ? 'Great pronunciation! Try another phrase.' 
-        : 'Keep practicing! Click Practice to try again.';
-}
-
-// Display user transcription
+// Display user transcription (legacy, without score)
 function displayUserTranscription(data) {
     userTranscription.innerHTML = `
         <div class="transcription-content">
@@ -235,6 +179,37 @@ function displayUserTranscription(data) {
         </div>
     `;
     recordingStatus.textContent = 'Transcription complete!';
+}
+
+// Display user transcription with pronunciation score
+function displayUserTranscriptionWithScore(data, scoreData) {
+    const scoreHtml = scoreData ? getScoreBadgeHtml(scoreData.score) : '';
+    
+    userTranscription.innerHTML = `
+        <div class="transcription-content">
+            <div class="transcription-header">
+                <p class="chinese">${data.text}</p>
+                ${scoreHtml}
+            </div>
+            <p class="jyutping">${data.jyutping || 'Jyutping unavailable'}</p>
+            ${scoreData ? `
+                <div class="inline-score-details">
+                    <span class="score-label">Your pronunciation:</span>
+                    <span class="transcribed-jyutping">${scoreData.transcribedJyutping || ''}</span>
+                </div>
+            ` : ''}
+        </div>
+    `;
+    recordingStatus.textContent = scoreData 
+        ? `Score: ${scoreData.score}/100 ${scoreData.passed ? '✅' : '- Keep practicing!'}`
+        : 'Transcription complete!';
+}
+
+// Get score badge HTML
+function getScoreBadgeHtml(score) {
+    const scoreClass = score >= 90 ? 'excellent' : score >= 70 ? 'good' : score >= 50 ? 'fair' : 'needs-work';
+    const emoji = score >= 90 ? '🌟' : score >= 70 ? '👍' : score >= 50 ? '💪' : '🔄';
+    return `<span class="score-badge ${scoreClass}">${emoji} ${score}</span>`;
 }
 
 // Generate AI response
@@ -274,26 +249,12 @@ async function generateAIResponse(userText) {
 
 // Display AI response
 function displayAIResponse(data) {
-    // Set target text for practice mode
-    targetText = data.text;
-    
     aiResponse.innerHTML = `
         <div class="transcription-content">
             <p class="chinese">${data.text}</p>
             <p class="jyutping">${data.jyutping || 'Jyutping unavailable'}</p>
         </div>
     `;
-    
-    // Show practice button if it exists
-    if (practiceBtn) {
-        practiceBtn.style.display = 'inline-block';
-        practiceBtn.textContent = '🎯 Practice this phrase';
-    }
-    
-    // Hide previous score
-    if (pronunciationScore) {
-        pronunciationScore.style.display = 'none';
-    }
 }
 
 // Play audio
@@ -317,16 +278,18 @@ function base64ToBlob(base64, mimeType) {
 }
 
 // Add to conversation history
-function addToHistory(speaker, text, jyutping) {
+function addToHistory(speaker, text, jyutping, score = null) {
     const historyItem = document.createElement('div');
     historyItem.className = `history-item ${speaker}`;
     
     const timestamp = new Date().toLocaleTimeString();
     const speakerLabel = speaker === 'user' ? 'You' : 'AI';
+    const scoreBadge = (speaker === 'user' && score !== null) ? getScoreBadgeHtml(score) : '';
     
     historyItem.innerHTML = `
         <div class="history-header">
             <span class="speaker">${speakerLabel}</span>
+            ${scoreBadge}
             <span class="timestamp">${timestamp}</span>
         </div>
         <p class="chinese">${text}</p>
