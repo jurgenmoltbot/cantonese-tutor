@@ -106,10 +106,9 @@ function stopRecording() {
     }
 }
 
-// Transcribe audio and score pronunciation
+// Transcribe audio
 async function transcribeAudio(audioBlob) {
     try {
-        // First, transcribe to get the text
         const formData = new FormData();
         formData.append('audio', audioBlob, 'recording.webm');
 
@@ -123,16 +122,10 @@ async function transcribeAudio(audioBlob) {
         }
 
         const data = await response.json();
-        
-        // Now score pronunciation against the transcribed text
-        recordingStatus.textContent = 'Scoring pronunciation...';
-        const scoreData = await scorePronunciationInline(audioBlob, data.text);
-        
-        // Display transcription with score
-        displayUserTranscriptionWithScore(data, scoreData);
+        displayUserTranscription(data);
         
         // Add to conversation history
-        addToHistory('user', data.text, data.jyutping, scoreData?.score);
+        addToHistory('user', data.text, data.jyutping);
 
         // Generate AI response
         await generateAIResponse(data.text);
@@ -278,18 +271,16 @@ function base64ToBlob(base64, mimeType) {
 }
 
 // Add to conversation history
-function addToHistory(speaker, text, jyutping, score = null) {
+function addToHistory(speaker, text, jyutping) {
     const historyItem = document.createElement('div');
     historyItem.className = `history-item ${speaker}`;
     
     const timestamp = new Date().toLocaleTimeString();
     const speakerLabel = speaker === 'user' ? 'You' : 'AI';
-    const scoreBadge = (speaker === 'user' && score !== null) ? getScoreBadgeHtml(score) : '';
     
     historyItem.innerHTML = `
         <div class="history-header">
             <span class="speaker">${speakerLabel}</span>
-            ${scoreBadge}
             <span class="timestamp">${timestamp}</span>
         </div>
         <p class="chinese">${text}</p>
