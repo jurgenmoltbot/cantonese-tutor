@@ -210,14 +210,11 @@ async function generateAIResponse(userText) {
     try {
         recordingStatus.textContent = 'Generating AI response...';
         
-        // TODO: Add actual conversation logic with LLM
-        // For now, just echo a simple response
-        const responseText = '你好！你今日點呀？';
-        
+        // Call backend to generate AI response and synthesize speech
         const response = await fetch('/api/synthesize', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: responseText })
+            body: JSON.stringify({ text: userText, isUser: true })
         });
 
         if (!response.ok) {
