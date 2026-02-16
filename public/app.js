@@ -179,11 +179,11 @@ async function checkGrammar(userText) {
     recordingStatus.textContent = 'Checking your Cantonese...';
     
     try {
-        // Send to server for AI response
+        // Send to server for AI response with TTS
         const response = await fetch('/api/check-grammar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: userText })
+            body: JSON.stringify({ text: userText, withAudio: true })
         });
         
         if (!response.ok) {
@@ -191,6 +191,12 @@ async function checkGrammar(userText) {
         }
         
         const data = await response.json();
+        
+        // Display in AI Response section and play audio
+        displayAIResponse(data);
+        if (data.audio) {
+            playAudio(data.audio);
+        }
         
         // Add AI response to history
         addToHistory('ai', data.text, data.jyutping);

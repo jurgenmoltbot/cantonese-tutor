@@ -353,7 +353,7 @@ app.post('/api/clear-history', (req, res) => {
 // Check grammar/naturalness of Cantonese statement
 app.post('/api/check-grammar', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, withAudio } = req.body;
     
     if (!text) {
       return res.status(400).json({ error: 'No text provided' });
@@ -412,9 +412,38 @@ Be encouraging but honest. Focus on natural colloquial usage, not formal/written
     // Get Jyutping for the response
     const jyutping = await getJyutping(aiResponse);
     
+    // Generate audio if requested
+    let audio = null;
+    if (withAudio) {
+      try {
+        const ttsResponse = await callWithRetry(async () => {
+          return await axios.post(TTS_ENDPOINT, {
+            api_key: CANTONESE_AI_API_KEY,
+            text: aiResponse,
+            language: 'cantonese',
+            voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
+            output_extension: 'mp3',
+            frame_rate: '24000',
+            speed: 1.0,
+            should_enhance: true
+          }, {
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            responseType: 'arraybuffer'
+          });
+        });
+        audio = Buffer.from(ttsResponse.data).toString('base64');
+      } catch (ttsError) {
+        console.error('TTS error for grammar check:', ttsError.message);
+        // Continue without audio
+      }
+    }
+    
     res.json({
       text: aiResponse,
-      jyutping: jyutping
+      jyutping: jyutping,
+      audio: audio
     });
     
   } catch (error) {
