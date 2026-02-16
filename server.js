@@ -26,6 +26,7 @@ const upload = multer({ dest: 'uploads/' });
 const CANTONESE_AI_API_KEY = process.env.CANTONESE_AI_API_KEY;
 const STT_ENDPOINT = 'https://paid-api.cantonese.ai';
 const TTS_ENDPOINT = 'https://cantonese.ai/api/tts';
+const SCORE_ENDPOINT = 'https://cantonese.ai/api/score';
 
 // Speech-to-Text endpoint
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
@@ -171,6 +172,52 @@ async function getJyutping(text) {
     }, 5000);
   });
 }
+
+// Pronunciation Scoring endpoint
+app.post('/api/score', upload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file provided' });
+    }
+
+    const targetText = req.body.text;
+    if (!targetText) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'No target text provided' });
+    }
+
+    const filePath = req.file.path;
+
+    // Call cantonese.ai Score API
+    const formData = new FormData();
+    formData.append('api_key', CANTONESE_AI_API_KEY);
+    formData.append('audio', fs.createReadStream(filePath));
+    formData.append('text', targetText);
+
+    const response = await axios.post(SCORE_ENDPOINT, formData, {
+      headers: formData.getHeaders()
+    });
+
+    // Clean up uploaded file
+    fs.unlinkSync(filePath);
+
+    res.json({
+      success: response.data.success,
+      score: response.data.score,
+      passed: response.data.passed,
+      expectedJyutping: response.data.expectedJyutping,
+      transcribedJyutping: response.data.transcribedJyutping,
+      targetText: targetText
+    });
+
+  } catch (error) {
+    console.error('Scoring error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'Pronunciation scoring failed', 
+      details: error.response?.data || error.message 
+    });
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

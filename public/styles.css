@@ -222,6 +222,104 @@ audio {
     margin-top: 15px;
 }
 
+/* Practice Button */
+.btn-secondary {
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: white;
+}
+
+.btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+}
+
+.btn-secondary.active {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+    animation: pulse 1.5s infinite;
+}
+
+/* Score Section */
+.score-section {
+    margin-bottom: 30px;
+}
+
+.score-box {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+}
+
+.score-result {
+    text-align: center;
+}
+
+.score-number {
+    font-size: 3rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.score-result.excellent .score-number {
+    color: #28a745;
+}
+
+.score-result.good .score-number {
+    color: #17a2b8;
+}
+
+.score-result.fair .score-number {
+    color: #ffc107;
+}
+
+.score-result.needs-work .score-number {
+    color: #dc3545;
+}
+
+.score-status {
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+}
+
+.jyutping-comparison {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.jyutping-comparison .expected,
+.jyutping-comparison .transcribed {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.jyutping-comparison .label {
+    font-weight: 600;
+    color: #666;
+    min-width: 80px;
+}
+
+.jyutping-comparison .jyutping {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    color: #333;
+    background: #f8f9fa;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.jyutping-comparison .expected .jyutping {
+    border-left: 3px solid #28a745;
+}
+
+.jyutping-comparison .transcribed .jyutping {
+    border-left: 3px solid #667eea;
+}
+
 /* Scrollbar Styling */
 .history-box::-webkit-scrollbar {
     width: 8px;
