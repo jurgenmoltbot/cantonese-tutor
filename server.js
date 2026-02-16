@@ -25,7 +25,7 @@ const upload = multer({ dest: 'uploads/' });
 // Cantonese.ai API configuration
 const CANTONESE_AI_API_KEY = process.env.CANTONESE_AI_API_KEY;
 const STT_ENDPOINT = 'https://paid-api.cantonese.ai';
-const TTS_ENDPOINT = 'https://paid-api.cantonese.ai/api/tts';
+const TTS_ENDPOINT = 'https://cantonese.ai/api/tts';
 
 // Speech-to-Text endpoint
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
