@@ -45,7 +45,16 @@
 
             <!-- Conversation History -->
             <div class="history-section">
-                <h2>Conversation History</h2>
+                <div class="history-header">
+                    <h2>Conversation History</h2>
+                    <div class="history-actions">
+                        <button id="exportBtn" class="btn btn-small" title="Export conversation">📥 Export</button>
+                        <label class="btn btn-small" title="Import conversation">
+                            📤 Import
+                            <input type="file" id="importInput" accept=".json" style="display: none;">
+                        </label>
+                    </div>
+                </div>
                 <div id="conversationHistory" class="history-box">
                     <p class="placeholder">Your conversation will be logged here...</p>
                 </div>

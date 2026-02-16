@@ -39,6 +39,96 @@ recordBtn.addEventListener('click', async () => {
     }
 });
 
+// Space key to toggle recording
+document.addEventListener('keydown', (e) => {
+    // Ignore if typing in an input field
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+    }
+    
+    if (e.code === 'Space') {
+        e.preventDefault(); // Prevent page scroll
+        if (!isRecording) {
+            startRecording();
+        } else {
+            stopRecording();
+        }
+    }
+});
+
+// Export conversation history
+const exportBtn = document.getElementById('exportBtn');
+if (exportBtn) {
+    exportBtn.addEventListener('click', () => {
+        const historyItems = document.querySelectorAll('#conversationHistory .history-item');
+        const exportData = [];
+        
+        historyItems.forEach(item => {
+            const speaker = item.classList.contains('user') ? 'user' : 'ai';
+            const chinese = item.querySelector('.chinese')?.textContent || '';
+            const jyutping = item.querySelector('.jyutping')?.textContent?.replace('Jyutping: ', '') || '';
+            const timestamp = item.querySelector('.timestamp')?.textContent || '';
+            
+            exportData.push({ speaker, chinese, jyutping, timestamp });
+        });
+        
+        if (exportData.length === 0) {
+            alert('No conversation to export');
+            return;
+        }
+        
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cantonese-conversation-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+}
+
+// Import conversation history
+const importInput = document.getElementById('importInput');
+if (importInput) {
+    importInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+            const text = await file.text();
+            const importData = JSON.parse(text);
+            
+            if (!Array.isArray(importData)) {
+                throw new Error('Invalid format');
+            }
+            
+            // Clear current history UI
+            conversationHistory.innerHTML = '';
+            
+            // Add imported items
+            importData.forEach(item => {
+                addToHistory(item.speaker, item.chinese, item.jyutping);
+            });
+            
+            // Also send to server to restore context
+            await fetch('/api/import-history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ history: importData })
+            });
+            
+            recordingStatus.textContent = `Imported ${importData.length} messages`;
+            
+        } catch (error) {
+            console.error('Import error:', error);
+            alert('Failed to import conversation. Make sure it\'s a valid export file.');
+        }
+        
+        // Reset input so same file can be imported again
+        e.target.value = '';
+    });
+}
+
 // New conversation button handler
 const newConvoBtn = document.getElementById('newConvoBtn');
 if (newConvoBtn) {

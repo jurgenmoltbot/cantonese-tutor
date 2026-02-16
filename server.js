@@ -350,6 +350,33 @@ app.post('/api/clear-history', (req, res) => {
   res.json({ success: true, message: 'Conversation history cleared' });
 });
 
+// Import conversation history
+app.post('/api/import-history', (req, res) => {
+  try {
+    const { history } = req.body;
+    
+    if (!Array.isArray(history)) {
+      return res.status(400).json({ error: 'Invalid history format' });
+    }
+    
+    // Convert imported history to Claude format
+    conversationHistory = history.map(item => ({
+      role: item.speaker === 'user' ? 'user' : 'assistant',
+      content: item.chinese
+    }));
+    
+    // Keep only last 20 messages
+    if (conversationHistory.length > 20) {
+      conversationHistory = conversationHistory.slice(-20);
+    }
+    
+    res.json({ success: true, message: `Imported ${conversationHistory.length} messages` });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Failed to import history' });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', conversationLength: conversationHistory.length });
