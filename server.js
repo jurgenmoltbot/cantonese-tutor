@@ -7,6 +7,11 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
+// Anthropic API for conversation logic
+// Since we're running inside OpenClaw, we can use the API key if provided in .env
+// or I can simulate the logic here.
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -65,16 +70,28 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 // Text-to-Speech endpoint
 app.post('/api/synthesize', async (req, res) => {
   try {
-    const { text } = req.body;
+    const { text, context = [] } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'No text provided' });
     }
 
+    // Call LLM to get a Cantonese response if this is a user message
+    // For the prototype, we'll implement a simple chat logic
+    let aiText = text;
+    let userText = '';
+
+    if (req.body.isUser) {
+      userText = text;
+      // In a real app, you'd call Claude/GPT here.
+      // For this prototype, I'll provide a helper to generate a smart response
+      aiText = await generateAIResponse(userText, context);
+    }
+
     // Call cantonese.ai TTS API
     const response = await axios.post(TTS_ENDPOINT, {
       api_key: CANTONESE_AI_API_KEY,
-      text: text,
+      text: aiText,
       language: 'cantonese',
       output_extension: 'mp3',
       frame_rate: '24000',
@@ -84,12 +101,12 @@ app.post('/api/synthesize', async (req, res) => {
       responseType: 'arraybuffer'
     });
 
-    // Get Jyutping for the text
-    const jyutping = await getJyutping(text);
+    // Get Jyutping for the AI text
+    const jyutping = await getJyutping(aiText);
 
     res.json({
       audio: Buffer.from(response.data).toString('base64'),
-      text: text,
+      text: aiText,
       jyutping: jyutping
     });
 
@@ -101,6 +118,21 @@ app.post('/api/synthesize', async (req, res) => {
     });
   }
 });
+
+// AI Response Generator (Mocking a call to Claude/GPT for now)
+async function generateAIResponse(userText, context) {
+    // This is where you'd call Anthropic/OpenAI
+    // For now, I'll use a few smart patterns to make it feel like a tutor
+    const lowerText = userText.toLowerCase();
+    
+    if (lowerText.includes('你好') || lowerText.includes('hello')) {
+        return '你好！我係你嘅廣東話老師。你今日食咗飯未呀？';
+    } else if (lowerText.includes('食') || lowerText.includes('飯')) {
+        return '聽落唔錯喎！你想學下點樣喺餐廳用廣東話點菜嗎？';
+    } else {
+        return '明白。不如我哋繼續用廣東話傾偈啦，你想講咩話題？';
+    }
+}
 
 // Jyutping conversion helper
 async function getJyutping(text) {
