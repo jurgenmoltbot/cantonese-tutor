@@ -307,6 +307,21 @@ h2 {
     cursor: not-allowed;
 }
 
+.btn-replay {
+    margin-top: 10px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    background: #e3f2fd;
+    border: 1px solid #2196f3;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-replay:hover {
+    background: #bbdefb;
+}
+
 .history-item .jyutping-label {
     font-weight: 600;
     color: #667eea;

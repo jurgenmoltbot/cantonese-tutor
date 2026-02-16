@@ -145,6 +145,16 @@ if (importInput) {
     });
 }
 
+// Handle replay button clicks
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('btn-replay')) {
+        const audio = e.target.dataset.audio;
+        if (audio) {
+            playAudio(audio);
+        }
+    }
+});
+
 // Handle "Did I say this correctly?" button clicks
 document.addEventListener('click', async (e) => {
     if (e.target.classList.contains('btn-check-grammar')) {
@@ -198,8 +208,8 @@ async function checkGrammar(userText) {
             playAudio(data.audio);
         }
         
-        // Add AI response to history
-        addToHistory('ai', data.text, data.jyutping);
+        // Add AI response to history (with audio for replay)
+        addToHistory('ai', data.text, data.jyutping, true, data.audio);
         
         recordingStatus.textContent = 'Ready to record!';
         lastRequest = null; // Clear on success
@@ -467,10 +477,12 @@ async function generateAIResponse(userText) {
 
         const data = await response.json();
         displayAIResponse(data);
-        playAudio(data.audio);
+        if (data.audio) {
+            playAudio(data.audio);
+        }
         
-        // Add to conversation history
-        addToHistory('ai', data.text, data.jyutping);
+        // Add to conversation history (with audio for replay)
+        addToHistory('ai', data.text, data.jyutping, true, data.audio);
 
         recordingStatus.textContent = 'Ready to record again!';
         lastRequest = null; // Clear on success
@@ -514,7 +526,7 @@ function base64ToBlob(base64, mimeType) {
 }
 
 // Add to conversation history
-function addToHistory(speaker, text, jyutping, showCheckButton = true) {
+function addToHistory(speaker, text, jyutping, showCheckButton = true, audio = null) {
     const historyItem = document.createElement('div');
     historyItem.className = `history-item ${speaker}`;
     
@@ -526,6 +538,11 @@ function addToHistory(speaker, text, jyutping, showCheckButton = true) {
         ? `<button class="btn-check-grammar" data-text="${text.replace(/"/g, '&quot;')}" title="Ask AI if this is correct Cantonese">❓ Did I say this correctly?</button>`
         : '';
     
+    // Replay button for AI messages with audio
+    const replayButton = (speaker === 'ai' && audio)
+        ? `<button class="btn-replay" data-audio="${audio}" title="Replay audio">🔊 Replay</button>`
+        : '';
+    
     historyItem.innerHTML = `
         <div class="history-header">
             <span class="speaker">${speakerLabel}</span>
@@ -534,6 +551,7 @@ function addToHistory(speaker, text, jyutping, showCheckButton = true) {
         <p class="chinese">${text}</p>
         ${jyutping ? `<p class="jyutping"><span class="jyutping-label">Jyutping:</span> ${jyutping}</p>` : ''}
         ${checkButton}
+        ${replayButton}
     `;
     
     // Remove placeholder if it exists
