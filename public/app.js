@@ -94,7 +94,7 @@ if (exportBtn) {
     });
 }
 
-// Import conversation history
+// Import conversation history (supports MD and JSON)
 const importInput = document.getElementById('importInput');
 if (importInput) {
     importInput.addEventListener('change', async (e) => {
@@ -103,10 +103,18 @@ if (importInput) {
         
         try {
             const text = await file.text();
-            const importData = JSON.parse(text);
+            let importData;
             
-            if (!Array.isArray(importData)) {
-                throw new Error('Invalid format');
+            if (file.name.endsWith('.md')) {
+                // Parse Markdown format
+                importData = parseMarkdownConversation(text);
+            } else {
+                // Parse JSON format
+                importData = JSON.parse(text);
+            }
+            
+            if (!Array.isArray(importData) || importData.length === 0) {
+                throw new Error('Invalid format or empty file');
             }
             
             // Clear current history UI
@@ -134,6 +142,39 @@ if (importInput) {
         // Reset input so same file can be imported again
         e.target.value = '';
     });
+}
+
+// Parse Markdown conversation format
+function parseMarkdownConversation(markdown) {
+    const messages = [];
+    
+    // Split by message blocks (### headers)
+    const blocks = markdown.split(/###\s+/).filter(b => b.trim());
+    
+    for (const block of blocks) {
+        // Skip header block
+        if (block.startsWith('# ') || !block.includes('**Chinese:**')) {
+            continue;
+        }
+        
+        // Determine speaker
+        const isUser = block.includes('**You**') || block.includes('🗣️');
+        const speaker = isUser ? 'user' : 'ai';
+        
+        // Extract Chinese text
+        const chineseMatch = block.match(/\*\*Chinese:\*\*\s*(.+?)(?:\n|$)/);
+        const chinese = chineseMatch ? chineseMatch[1].trim() : '';
+        
+        // Extract Jyutping
+        const jyutpingMatch = block.match(/\*\*Jyutping:\*\*\s*(.+?)(?:\n|$)/);
+        const jyutping = jyutpingMatch ? jyutpingMatch[1].trim() : '';
+        
+        if (chinese) {
+            messages.push({ speaker, chinese, jyutping });
+        }
+    }
+    
+    return messages;
 }
 
 // New conversation button handler
