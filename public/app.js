@@ -56,32 +56,39 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Export conversation history
+// Export conversation history as Markdown
 const exportBtn = document.getElementById('exportBtn');
 if (exportBtn) {
     exportBtn.addEventListener('click', () => {
         const historyItems = document.querySelectorAll('#conversationHistory .history-item');
-        const exportData = [];
         
-        historyItems.forEach(item => {
-            const speaker = item.classList.contains('user') ? 'user' : 'ai';
-            const chinese = item.querySelector('.chinese')?.textContent || '';
-            const jyutping = item.querySelector('.jyutping')?.textContent?.replace('Jyutping: ', '') || '';
-            const timestamp = item.querySelector('.timestamp')?.textContent || '';
-            
-            exportData.push({ speaker, chinese, jyutping, timestamp });
-        });
-        
-        if (exportData.length === 0) {
+        if (historyItems.length === 0) {
             alert('No conversation to export');
             return;
         }
         
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        let markdown = `# Cantonese Conversation\n`;
+        markdown += `**Date:** ${new Date().toLocaleDateString()}\n\n---\n\n`;
+        
+        historyItems.forEach(item => {
+            const speaker = item.classList.contains('user') ? '🗣️ **You**' : '🤖 **AI (Bill)**';
+            const chinese = item.querySelector('.chinese')?.textContent || '';
+            const jyutping = item.querySelector('.jyutping')?.textContent?.replace('Jyutping: ', '') || '';
+            const timestamp = item.querySelector('.timestamp')?.textContent || '';
+            
+            markdown += `### ${speaker} *(${timestamp})*\n\n`;
+            markdown += `**Chinese:** ${chinese}\n\n`;
+            if (jyutping) {
+                markdown += `**Jyutping:** ${jyutping}\n\n`;
+            }
+            markdown += `---\n\n`;
+        });
+        
+        const blob = new Blob([markdown], { type: 'text/markdown' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cantonese-conversation-${new Date().toISOString().slice(0,10)}.json`;
+        a.download = `cantonese-conversation-${new Date().toISOString().slice(0,10)}.md`;
         a.click();
         URL.revokeObjectURL(url);
     });
