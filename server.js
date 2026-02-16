@@ -350,6 +350,82 @@ app.post('/api/clear-history', (req, res) => {
   res.json({ success: true, message: 'Conversation history cleared' });
 });
 
+// Check grammar/naturalness of Cantonese statement
+app.post('/api/check-grammar', async (req, res) => {
+  try {
+    const { text } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ error: 'No text provided' });
+    }
+    
+    // Add the grammar check question to conversation history
+    const questionText = `我想問下：「${text}」呢句啱唔啱？`;
+    conversationHistory.push({
+      role: 'user',
+      content: questionText
+    });
+    
+    let aiResponse;
+    
+    if (ANTHROPIC_API_KEY) {
+      // Use Claude to check the grammar
+      const response = await axios.post('https://api.anthropic.com/v1/messages', {
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        system: `You are a Cantonese language tutor. The user will ask if their Cantonese statement is correct.
+
+Your job is to:
+1. Evaluate if the statement sounds natural in colloquial Hong Kong Cantonese
+2. If correct, praise them briefly
+3. If there are issues, explain what's wrong and provide the correct way to say it
+4. Keep response SHORT (2-3 sentences max)
+5. Respond ONLY in Cantonese (Traditional Chinese characters)
+
+Be encouraging but honest. Focus on natural colloquial usage, not formal/written Chinese.`,
+        messages: conversationHistory
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01'
+        }
+      });
+      
+      aiResponse = response.data.content[0].text;
+    } else {
+      // Fallback if no API key
+      aiResponse = '我冇辦法檢查你嘅廣東話，因為API未設定好。';
+    }
+    
+    // Add AI response to history
+    conversationHistory.push({
+      role: 'assistant',
+      content: aiResponse
+    });
+    
+    // Keep only last 20 messages
+    if (conversationHistory.length > 20) {
+      conversationHistory = conversationHistory.slice(-20);
+    }
+    
+    // Get Jyutping for the response
+    const jyutping = await getJyutping(aiResponse);
+    
+    res.json({
+      text: aiResponse,
+      jyutping: jyutping
+    });
+    
+  } catch (error) {
+    console.error('Grammar check error:', error.response?.data || error.message);
+    res.status(500).json({ 
+      error: 'Grammar check failed',
+      details: error.response?.data || error.message 
+    });
+  }
+});
+
 // Import conversation history
 app.post('/api/import-history', (req, res) => {
   try {

@@ -144,6 +144,54 @@ if (importInput) {
     });
 }
 
+// Handle "Did I say this correctly?" button clicks
+document.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('btn-check-grammar')) {
+        const userText = e.target.dataset.text;
+        
+        // Disable button to prevent double-clicks
+        e.target.disabled = true;
+        e.target.textContent = '⏳ Checking...';
+        
+        try {
+            await checkGrammar(userText);
+            // Remove the button after checking
+            e.target.remove();
+        } catch (error) {
+            console.error('Grammar check error:', error);
+            e.target.disabled = false;
+            e.target.textContent = '❓ Did I say this correctly?';
+        }
+    }
+});
+
+// Ask AI to check if statement is correct Cantonese
+async function checkGrammar(userText) {
+    // Add the question to history (without the check button)
+    const questionText = `我想問下：「${userText}」呢句啱唔啱？`;
+    addToHistory('user', questionText, '', false);
+    
+    recordingStatus.textContent = 'Checking your Cantonese...';
+    
+    // Send to server for AI response
+    const response = await fetch('/api/check-grammar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: userText })
+    });
+    
+    if (!response.ok) {
+        throw new Error('Grammar check failed');
+    }
+    
+    const data = await response.json();
+    
+    // Add AI response to history
+    addToHistory('ai', data.text, data.jyutping);
+    
+    recordingStatus.textContent = 'Ready to record!';
+}
+
 // Parse Markdown conversation format
 function parseMarkdownConversation(markdown) {
     const messages = [];
@@ -406,12 +454,17 @@ function base64ToBlob(base64, mimeType) {
 }
 
 // Add to conversation history
-function addToHistory(speaker, text, jyutping) {
+function addToHistory(speaker, text, jyutping, showCheckButton = true) {
     const historyItem = document.createElement('div');
     historyItem.className = `history-item ${speaker}`;
     
     const timestamp = new Date().toLocaleTimeString();
     const speakerLabel = speaker === 'user' ? 'You' : 'AI';
+    
+    // Only show "Did I say this correctly?" button for user messages (not for check requests)
+    const checkButton = (speaker === 'user' && showCheckButton) 
+        ? `<button class="btn-check-grammar" data-text="${text.replace(/"/g, '&quot;')}" title="Ask AI if this is correct Cantonese">❓ Did I say this correctly?</button>`
+        : '';
     
     historyItem.innerHTML = `
         <div class="history-header">
@@ -420,6 +473,7 @@ function addToHistory(speaker, text, jyutping) {
         </div>
         <p class="chinese">${text}</p>
         ${jyutping ? `<p class="jyutping"><span class="jyutping-label">Jyutping:</span> ${jyutping}</p>` : ''}
+        ${checkButton}
     `;
     
     // Remove placeholder if it exists
