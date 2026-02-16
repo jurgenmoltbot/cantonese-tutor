@@ -75,11 +75,49 @@ app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
 // Helper to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Retry with progressive backoff: 30s, 60s, 2min, 5min
+const RETRY_DELAYS = [30000, 60000, 120000, 300000];
+
+async function callWithRetry(fn, retryDelays = RETRY_DELAYS) {
+  let lastError;
+  
+  // First attempt (no delay)
+  try {
+    return await fn();
+  } catch (error) {
+    lastError = error;
+    const status = error.response?.status;
+    // Only retry on 5xx errors (server errors) or network errors
+    if (status && status < 500) {
+      throw error;
+    }
+    console.log(`TTS failed with status ${status}, will retry...`);
+  }
+  
+  // Retry attempts with backoff
+  for (let i = 0; i < retryDelays.length; i++) {
+    const delayMs = retryDelays[i];
+    console.log(`Waiting ${delayMs/1000}s before retry ${i + 1}/${retryDelays.length}...`);
+    await delay(delayMs);
+    
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const status = error.response?.status;
+      if (status && status < 500) {
+        throw error;
+      }
+      console.log(`Retry ${i + 1} failed with status ${status}`);
+    }
+  }
+  
+  throw lastError;
+}
+
 // Text-to-Speech endpoint
 app.post('/api/synthesize', async (req, res) => {
   try {
-    // Rate limit protection - wait 2 seconds before TTS call
-    await delay(2000);
     const { text, context = [] } = req.body;
 
     if (!text) {
@@ -98,21 +136,23 @@ app.post('/api/synthesize', async (req, res) => {
       aiText = await generateAIResponse(userText, context);
     }
 
-    // Call cantonese.ai TTS API
-    const response = await axios.post(TTS_ENDPOINT, {
-      api_key: CANTONESE_AI_API_KEY,
-      text: aiText,
-      language: 'cantonese',
-      voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
-      output_extension: 'mp3',
-      frame_rate: '24000',
-      speed: 1.0,
-      should_enhance: true
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      responseType: 'arraybuffer'
+    // Call cantonese.ai TTS API with retry on 5xx errors
+    const response = await callWithRetry(async () => {
+      return await axios.post(TTS_ENDPOINT, {
+        api_key: CANTONESE_AI_API_KEY,
+        text: aiText,
+        language: 'cantonese',
+        voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
+        output_extension: 'mp3',
+        frame_rate: '24000',
+        speed: 1.0,
+        should_enhance: true
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        responseType: 'arraybuffer'
+      });
     });
 
     // Get Jyutping for the AI text
