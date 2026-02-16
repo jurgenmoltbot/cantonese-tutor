@@ -86,6 +86,20 @@ h2 {
     cursor: not-allowed;
 }
 
+.btn-outline {
+    background: transparent;
+    color: #667eea;
+    border: 2px solid #667eea;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+
+.btn-outline:hover {
+    background: #667eea;
+    color: white;
+}
+
 .btn.recording {
     background: #e74c3c;
     animation: pulse 1.5s infinite;

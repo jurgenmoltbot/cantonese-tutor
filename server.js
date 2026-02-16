@@ -28,6 +28,10 @@ const STT_ENDPOINT = 'https://paid-api.cantonese.ai';
 const TTS_ENDPOINT = 'https://cantonese.ai/api/tts';
 const SCORE_ENDPOINT = 'https://cantonese.ai/api/score';
 
+// Conversation history storage (in-memory, per session)
+// In production, you'd want to use sessions or a database
+let conversationHistory = [];
+
 // Speech-to-Text endpoint
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
   try {
@@ -121,10 +125,77 @@ app.post('/api/synthesize', async (req, res) => {
   }
 });
 
-// AI Response Generator (Mocking a call to Claude/GPT for now)
+// AI Response Generator using Claude
 async function generateAIResponse(userText, context) {
-    // This is where you'd call Anthropic/OpenAI
-    // For now, I'll use a few smart patterns to make it feel like a tutor
+    // Add user message to history
+    conversationHistory.push({
+        role: 'user',
+        content: userText
+    });
+
+    // Keep only last 20 messages to avoid token limits
+    if (conversationHistory.length > 20) {
+        conversationHistory = conversationHistory.slice(-20);
+    }
+
+    // If no Anthropic API key, use fallback responses
+    if (!ANTHROPIC_API_KEY) {
+        const fallbackResponse = getFallbackResponse(userText);
+        conversationHistory.push({
+            role: 'assistant',
+            content: fallbackResponse
+        });
+        return fallbackResponse;
+    }
+
+    try {
+        const response = await axios.post('https://api.anthropic.com/v1/messages', {
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 300,
+            system: `You are a friendly Cantonese language tutor. You MUST respond ONLY in Cantonese (Traditional Chinese characters used in Hong Kong). 
+
+Your role:
+- Help the user practice conversational Cantonese
+- Keep responses short (1-2 sentences) for easy pronunciation practice
+- Use natural, everyday Cantonese expressions
+- If the user makes mistakes, gently correct them in Cantonese
+- Ask follow-up questions to keep the conversation going
+- Adjust difficulty based on the user's level
+
+IMPORTANT: Respond ONLY in Cantonese. No English, no Mandarin, no Pinyin - only Cantonese with Traditional Chinese characters.`,
+            messages: conversationHistory
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01'
+            }
+        });
+
+        const aiText = response.data.content[0].text;
+        
+        // Add assistant response to history
+        conversationHistory.push({
+            role: 'assistant',
+            content: aiText
+        });
+
+        return aiText;
+
+    } catch (error) {
+        console.error('Claude API error:', error.response?.data || error.message);
+        // Fallback to simple responses if API fails
+        const fallbackResponse = getFallbackResponse(userText);
+        conversationHistory.push({
+            role: 'assistant',
+            content: fallbackResponse
+        });
+        return fallbackResponse;
+    }
+}
+
+// Fallback responses when Claude API is unavailable
+function getFallbackResponse(userText) {
     const lowerText = userText.toLowerCase();
     
     if (lowerText.includes('你好') || lowerText.includes('hello')) {
@@ -219,9 +290,15 @@ app.post('/api/score', upload.single('audio'), async (req, res) => {
   }
 });
 
+// Clear conversation history
+app.post('/api/clear-history', (req, res) => {
+  conversationHistory = [];
+  res.json({ success: true, message: 'Conversation history cleared' });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', conversationLength: conversationHistory.length });
 });
 
 app.listen(PORT, () => {

@@ -56,6 +56,30 @@ if (practiceBtn) {
     });
 }
 
+// New conversation button handler
+const newConvoBtn = document.getElementById('newConvoBtn');
+if (newConvoBtn) {
+    newConvoBtn.addEventListener('click', async () => {
+        try {
+            await fetch('/api/clear-history', { method: 'POST' });
+            
+            // Clear UI
+            conversationHistory.innerHTML = '<p class="placeholder">Your conversation will be logged here...</p>';
+            userTranscription.innerHTML = '<p class="placeholder">Your transcription will appear here...</p>';
+            aiResponse.innerHTML = '<p class="placeholder">AI response will appear here...</p>';
+            if (pronunciationScore) pronunciationScore.style.display = 'none';
+            if (practiceBtn) practiceBtn.style.display = 'none';
+            audioPlayer.style.display = 'none';
+            targetText = '';
+            
+            recordingStatus.textContent = 'New conversation started! Say something in Cantonese.';
+        } catch (error) {
+            console.error('Error clearing history:', error);
+            recordingStatus.textContent = 'Error starting new conversation.';
+        }
+    });
+}
+
 // Start recording
 async function startRecording() {
     try {
