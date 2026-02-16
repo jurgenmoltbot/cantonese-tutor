@@ -306,7 +306,7 @@ function addToHistory(speaker, text, jyutping) {
             <span class="timestamp">${timestamp}</span>
         </div>
         <p class="chinese">${text}</p>
-        <p class="jyutping">${jyutping || ''}</p>
+        ${jyutping ? `<p class="jyutping"><span class="jyutping-label">Jyutping:</span> ${jyutping}</p>` : ''}
     `;
     
     // Remove placeholder if it exists

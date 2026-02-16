@@ -215,6 +215,16 @@ h2 {
 
 .history-item .jyutping {
     font-size: 1rem;
+    background: #f0f4ff;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    border-left: 3px solid #667eea;
+}
+
+.history-item .jyutping-label {
+    font-weight: 600;
+    color: #667eea;
 }
 
 /* Audio Player */
