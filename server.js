@@ -25,7 +25,7 @@ const upload = multer({ dest: 'uploads/' });
 // Cantonese.ai API configuration
 const CANTONESE_AI_API_KEY = process.env.CANTONESE_AI_API_KEY;
 const STT_ENDPOINT = 'https://paid-api.cantonese.ai';
-const TTS_ENDPOINT = 'https://cantonese.ai/api/tts';
+const TTS_ENDPOINT = 'https://paid-api.cantonese.ai/tts';
 
 // Speech-to-Text endpoint
 app.post('/api/transcribe', upload.single('audio'), async (req, res) => {
@@ -93,6 +93,7 @@ app.post('/api/synthesize', async (req, res) => {
       api_key: CANTONESE_AI_API_KEY,
       text: aiText,
       language: 'cantonese',
+      voice_id: 'eb545e15-28ec-42ba-badf-e13eec7ed4c8', // Echo (emotional)
       output_extension: 'mp3',
       frame_rate: '24000',
       speed: 1.0,
