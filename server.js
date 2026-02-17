@@ -28,6 +28,10 @@ const STT_ENDPOINT = 'https://paid-api.cantonese.ai';
 const TTS_ENDPOINT = 'https://cantonese.ai/api/tts';
 const SCORE_ENDPOINT = 'https://cantonese.ai/api/score';
 
+// TTS Engine: 'edge' (free, reliable) or 'cantonese-ai' (better quality, rate limited)
+const TTS_ENGINE = process.env.TTS_ENGINE || 'edge';
+const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE || 'zh-HK-WanLungNeural';
+
 // Conversation history storage (in-memory, per session)
 // In production, you'd want to use sessions or a database
 let conversationHistory = [];
@@ -136,30 +140,14 @@ app.post('/api/synthesize', async (req, res) => {
       aiText = await generateAIResponse(userText, context);
     }
 
-    // Call cantonese.ai TTS API with retry on 5xx errors
-    const response = await callWithRetry(async () => {
-      return await axios.post(TTS_ENDPOINT, {
-        api_key: CANTONESE_AI_API_KEY,
-        text: aiText,
-        language: 'cantonese',
-        voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
-        output_extension: 'mp3',
-        frame_rate: '24000',
-        speed: 1.0,
-        should_enhance: true
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        responseType: 'arraybuffer'
-      });
-    });
+    // Synthesize speech using configured TTS engine
+    const audioBase64 = await synthesizeTTS(aiText);
 
     // Get Jyutping for the AI text
     const jyutping = await getJyutping(aiText);
 
     res.json({
-      audio: Buffer.from(response.data).toString('base64'),
+      audio: audioBase64,
       text: aiText,
       jyutping: jyutping
     });
@@ -298,6 +286,88 @@ async function getJyutping(text) {
   });
 }
 
+// Edge TTS synthesis helper
+async function synthesizeWithEdgeTTS(text, voice = EDGE_TTS_VOICE) {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn('python3', [
+      path.join(__dirname, 'utils', 'edge_tts_synth.py'),
+      text,
+      voice
+    ]);
+
+    let result = '';
+    let error = '';
+
+    pythonProcess.stdout.on('data', (data) => {
+      result += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      error += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Edge TTS error:', error);
+        reject(new Error(`Edge TTS failed: ${error}`));
+      } else {
+        resolve(result.trim()); // Returns base64 audio
+      }
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      pythonProcess.kill();
+      reject(new Error('Edge TTS timeout'));
+    }, 30000);
+  });
+}
+
+// Cantonese.ai TTS synthesis helper
+async function synthesizeWithCantoneseAI(text) {
+  const response = await callWithRetry(async () => {
+    return await axios.post(TTS_ENDPOINT, {
+      api_key: CANTONESE_AI_API_KEY,
+      text: text,
+      language: 'cantonese',
+      voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
+      output_extension: 'mp3',
+      frame_rate: '24000',
+      speed: 1.0,
+      should_enhance: true
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      responseType: 'arraybuffer'
+    });
+  });
+  return Buffer.from(response.data).toString('base64');
+}
+
+// Unified TTS function - uses configured engine with fallback
+async function synthesizeTTS(text) {
+  if (TTS_ENGINE === 'edge') {
+    try {
+      return await synthesizeWithEdgeTTS(text);
+    } catch (error) {
+      console.log('Edge TTS failed, trying cantonese.ai fallback:', error.message);
+      if (CANTONESE_AI_API_KEY) {
+        return await synthesizeWithCantoneseAI(text);
+      }
+      throw error;
+    }
+  } else {
+    // cantonese-ai engine
+    try {
+      return await synthesizeWithCantoneseAI(text);
+    } catch (error) {
+      console.log('Cantonese.ai TTS failed, trying edge-tts fallback:', error.message);
+      return await synthesizeWithEdgeTTS(text);
+    }
+  }
+}
+
 // Pronunciation Scoring endpoint
 app.post('/api/score', upload.single('audio'), async (req, res) => {
   try {
@@ -416,24 +486,7 @@ Be encouraging but honest. Focus on natural colloquial usage, not formal/written
     let audio = null;
     if (withAudio) {
       try {
-        const ttsResponse = await callWithRetry(async () => {
-          return await axios.post(TTS_ENDPOINT, {
-            api_key: CANTONESE_AI_API_KEY,
-            text: aiResponse,
-            language: 'cantonese',
-            voice_id: '776fc91d-9d92-46b6-8522-e8317f687892', // Bill
-            output_extension: 'mp3',
-            frame_rate: '24000',
-            speed: 1.0,
-            should_enhance: true
-          }, {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            responseType: 'arraybuffer'
-          });
-        });
-        audio = Buffer.from(ttsResponse.data).toString('base64');
+        audio = await synthesizeTTS(aiResponse);
       } catch (ttsError) {
         console.error('TTS error for grammar check:', ttsError.message);
         // Continue without audio
